@@ -1,0 +1,68 @@
+name: Init Twikit Cookies
+
+on:
+  workflow_dispatch:   # 手動起動のみ
+
+jobs:
+  init-cookies:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install twikit
+        run: |
+          pip install twikit
+
+      - name: Login and create cookies.json
+        env:
+          TWIKIT_EMAIL: ${{ secrets.TWIKIT_EMAIL }}
+          TWIKIT_USERNAME: ${{ secrets.TWIKIT_USERNAME }}
+          TWIKIT_PASSWORD: ${{ secrets.TWIKIT_PASSWORD }}
+        run: |
+          cat << 'EOF' > init_cookies.py
+          import asyncio
+          import json
+          from twikit import Client
+
+          import os
+
+          EMAIL = os.environ["TWIKIT_EMAIL"]
+          USERNAME = os.environ["TWIKIT_USERNAME"]
+          PASSWORD = os.environ["TWIKIT_PASSWORD"]
+
+          client = Client("ja-JP")
+
+          async def main():
+              await client.login(
+                  auth_info_1=EMAIL,
+                  auth_info_2=USERNAME,
+                  password=PASSWORD,
+              )
+              client.save_cookies("cookies.json")
+              print("cookies.json を作成しました")
+
+              # 中身を標準出力に出しておく（後で Secret にコピペする用）
+              with open("cookies.json", "r", encoding="utf-8") as f:
+                  data = f.read()
+              print("===== COOKIE_JSON_BEGIN =====")
+              print(data)
+              print("===== COOKIE_JSON_END =====")
+
+          if __name__ == "__main__":
+              asyncio.run(main())
+          EOF
+
+          python init_cookies.py
+
+      - name: Upload cookies.json as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cookies-json
+          path: cookies.json
